@@ -1,6 +1,7 @@
 #pip install flask
 from flask import Flask, request, Response, jsonify
 import ssl, json
+import smtplib
 
 
 #- A gente precisa criar um sistema que recebe um webhook do sistema de pagamento e decida como vamos tratar o cliente
@@ -45,18 +46,42 @@ def liberar_acesso(username):
     print("Bem-vindo(a),", username)
     print("Acesso ao curso liberado!")
     
-def verificar_pagamento_recusado(informacoes_pagamento):
-    # Código para verificar o pagamento
-    if informacoes_pagamento["status"] == "recusado":
-        print("Pagamento recusado do cliente:", informacoes_pagamento["cliente"])
-    else:
-        print("Pagamento aprovado do cliente:", informacoes_pagamento["cliente"])
-informacoes_pagamento = {
-    "nome": "Amanda",
-    "status": "recusado",
-}
+#Recusado
 
-verificar_pagamento_recusado(informacoes_pagamento)
+def enviar_email(destinatario, assunto, corpo):
+    remetente = "seu_email@example.com"
+    senha = "sua_senha_do_email"
+
+    mensagem = f"Subject: {assunto}\n\n{corpo}"
+
+    with smtplib.SMTP("smtp.example.com", 587) as servidor:
+        servidor.starttls()
+        servidor.login(remetente, senha)
+        servidor.sendmail(remetente, destinatario, mensagem)
+
+def pagamento_recusado(cliente):
+    # Código para identificar o pagamento recusado
+    # ...
+    
+    # Enviar mensagem de pagamento recusado
+    destinatario = cliente["email"]
+    assunto = "Pagamento Recusado"
+    corpo = f"Olá {cliente['nome']}, o seu pagamento foi recusado. Por favor, entre em contato conosco para resolver a situação."
+
+    enviar_email(destinatario, assunto, corpo)
+
+# Exemplo de informações do cliente
+    cliente = {
+    "nome": "João",
+    "email": "joao@example.com",
+    # Outras informações do cliente
+    }
+
+# Chamar a função para enviar a mensagem de pagamento recusado
+    pagamento_recusado(cliente)
+
+
+#Reenbolsado
 
 def verificar_pagamento_reenbolsado(informacoes_pagamento):
     # Código para verificar o pagamento
@@ -65,15 +90,29 @@ def verificar_pagamento_reenbolsado(informacoes_pagamento):
     else:
         print("Pagamento não reembolsado do cliente:", informacoes_pagamento["cliente"])
 # Exemplo de obtenção das informações do pagamento
-informacoes_pagamento = {
+    informacoes_pagamento = {
     "nome": "Caio",
     "status": "reembolsado",
     # Outras informações relevantes
-}
+    }
 
 # Chamar a função para verificar o pagamento
-verificar_pagamento_reenbolsado(informacoes_pagamento)
-     
+    verificar_pagamento_reenbolsado(informacoes_pagamento)
+
+def remover_acesso_cliente(cliente):
+    # Código para remover o acesso do cliente ao serviço
+    # ...
+    print("Acesso removido para o cliente:", cliente)
+# Exemplo de identificação do cliente após o reembolso
+    cliente = {
+    "nome": "João",
+    "id": 12345,
+    # Outras informações do cliente
+    }
+
+# Chamar a função para remover o acesso
+    remover_acesso_cliente(cliente)
+
           
 
 app = Flask(__name__)
