@@ -26,10 +26,10 @@ usuarios = {
 def criar_conta():
     nome_usuario = input("Digite o nome de usuário: ")
     senha = input("Digite a senha: ")
-    token = input("Digite o token: ")
+    uhdfaAADF123 = input("Digite o token: ")
 
-    if token_valido(token):
-        usuarios[nome_usuario] = {"senha": senha, "token": token}
+    if token_valido(uhdfaAADF123):
+        usuarios[nome_usuario] = {"senha": senha, "token": uhdfaAADF123}
         print("Conta criada com sucesso!")
     else:
         print("Token inválido!")
