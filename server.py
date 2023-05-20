@@ -1,7 +1,8 @@
 #pip install flask
-from flask import Flask, request, Response, jsonify
+from flask import Flask, request, Response, jsonify, g
 import ssl, json
 import smtplib
+import sqlite3
 
 
 #- A gente precisa criar um sistema que recebe um webhook do sistema de pagamento e decida como vamos tratar o cliente
@@ -23,22 +24,52 @@ import smtplib
 #ou então
 #print("Enviar mensagem de boas vindas para o email: fulano@email.com")
 
-pagamentos = [
-               {'nome': 'Kalpana', 'email': 'teste@teste.com', 'status': 'aprovado', 'valor': 650, 'forma_pagamento': 'pix', 'parcelas': 5},
-               {'nome': 'Caio', 'email': 'teste.caio@teste.com', 'status': 'recusado', 'valor': 800, 'forma_pagamento': 'pix', 'parcelas': 5},
-               {'nome': 'Amanda', 'email': 'teste.amanda@teste.com', 'status': 'reembolsado', 'valor': 750, 'forma_pagamento': 'pix', 'parcelas': 5}
-    
-             ]
+#pagamentos = [
+#               {'nome': 'Kalpana', 'email': 'teste@teste.com', 'status': 'aprovado', 'valor': 650, 'forma_pagamento': 'pix', 'parcelas': 5},
+#               {'nome': 'Caio', 'email': 'teste.caio@teste.com', 'status': 'recusado', 'valor': 800, 'forma_pagamento': 'pix', 'parcelas': 5},
+#               {'nome': 'Amanda', 'email': 'teste.amanda@teste.com', 'status': 'reembolsado', 'valor': 750, 'forma_pagamento': 'pix', 'parcelas': 5},
+#               {'nome': 'Joao', 'email': 'teste.joao@teste.com', 'status': 'removido', 'valor': 600, 'forma_pagamento': 'pix', 'parcelas': 4}
+#    
+#             ]
+
+
+# criar o aplicativo
+app = Flask(__name__)
+
+DB_URL = "enterprise.db"
+
+
 
 users = [
              {"username": "Carlos", "secret": "@admin456"}    
         ]
+
+@app.before_request
+def before_request():
+    print("Conectando ao banco")
+    conn = sqlite3.connect(DB_URL)
+    g.conn = conn
+
+@app.teardown_request
+def after_request(exception):
+    if g.conn is not None:
+        g.conn.close
+        print("Desconectando ao banco")
+        
+def query_employers_to_dict(conn, query):
+    cursor = conn.cursor() 
+    cursor.execute(query)
+    employers_dict = [{'nome':row[0], 'email':row[1], 'status':row[2], 'valor':row[3], 'forma_pagamento':row[4], 'parcelas':row[5]}
+                       for row in cursor.fetchall()]
+    return employers_dict
 
 def check_user(username, secret):
     for user in users:
         if (user["username"] == username) and (user["secret"] == secret):
             return True
     return False
+
+
 
 def liberar_acesso(username):
     # Corpo da função
@@ -72,8 +103,8 @@ def pagamento_recusado(cliente):
 
 # Exemplo de informações do cliente
     cliente = {
-    "nome": "João",
-    "email": "joao@example.com",
+    "nome": "Caio",
+    "email": "teste.caio@teste.com",
     # Outras informações do cliente
     }
 
@@ -91,7 +122,7 @@ def verificar_pagamento_reenbolsado(informacoes_pagamento):
         print("Pagamento não reembolsado do cliente:", informacoes_pagamento["cliente"])
 # Exemplo de obtenção das informações do pagamento
     informacoes_pagamento = {
-    "nome": "Caio",
+    "nome": "Amanda",
     "status": "reembolsado",
     # Outras informações relevantes
     }
@@ -105,7 +136,7 @@ def remover_acesso_cliente(cliente):
     print("Acesso removido para o cliente:", cliente)
 # Exemplo de identificação do cliente após o reembolso
     cliente = {
-    "nome": "João",
+    "nome": "Joao",
     "id": 12345,
     # Outras informações do cliente
     }
@@ -115,39 +146,52 @@ def remover_acesso_cliente(cliente):
 
           
 
-app = Flask(__name__)
-
 @app.route("/")
 def home():
     return "<h1>Home page</h1>"
 
 @app.route("/pagamentos")
 def get_pagamentos():
-    return {'pagamentos': pagamentos}
+    
+    query = """
+               SELECT nome, email, status, valor, forma_pagamento, parcelas
+               FROM pagamentos;
+    """
+    
+    employers_dict = query_employers_to_dict(g.conn, query)
+    
+    print(employers_dict)
+    return {'pagamentos': employers_dict}
 
 @app.route("/pagamentos/<status>")
 def get_pagamentos_status(status):
-    out_pagamentos = []
-    for pagamento in pagamentos:
-        if status == pagamento['status'].lower():
-            out_pagamentos.append(pagamento)
-    return {'pagamentos': out_pagamentos} 
+    
+    query = """
+               SELECT nome, email, status, valor, forma_pagamento, parcelas
+               FROM pagamentos
+               WHERE "status" LIKE "{}";
+    """.format(status)
+    
+    employers_dict = query_employers_to_dict(g.conn, query)
+    
+    return {'pagamentos': employers_dict} 
+
     
 @app.route("/pagamentos/<info>/<value>")
 def get_pagamentos_info(info, value):
-    out_pagamentos = []
-    for pagamento in pagamentos:
-        if info in pagamento.keys():
-            value_pagamento = pagamento[info]
-            
-            if type(value_pagamento) == str:
-                if value == value_pagamento.lower():
-                    out_pagamentos.append(pagamento)
-            if type(value_pagamento) == int:
-                if int(value) == value_pagamento:
-                    out_pagamentos.append(pagamento)       
+    
+    if value.isnumeric():
+        value = float(value)
+    
+    query = """
+               SELECT nome, email, status, valor, forma_pagamento, parcelas
+               FROM pagamentos
+               WHERE "{}" LIKE "{}";
+    """.format(info, value)
+    
+    employers_dict = query_employers_to_dict(g.conn, query)
                     
-    return {'pagamento': out_pagamentos}
+    return {'pagamentos': employers_dict}
 
 
 
@@ -164,19 +208,19 @@ def get_pagamentos_post():
     info = request.form['info']
     value = request.form['value']
     
-    out_pagamentos = []
-    for pagamento in pagamentos:
-        if info in pagamento.keys():
-            value_pagamento = pagamento[info]
-            
-            if type(value_pagamento) == str:
-                if value == value_pagamento.lower():
-                    out_pagamentos.append(pagamento)
-            if type(value_pagamento) == int:
-                if int(value) == value_pagamento:
-                    out_pagamentos.append(pagamento)       
+    if value.isnumeric():
+        value = float(value)
+    
+    query = """
+               SELECT nome, email, status, valor, forma_pagamento, parcelas
+               FROM pagamentos
+               WHERE "{}" LIKE "{}";
+    """.format(info, value)
+    
+    employers_dict = query_employers_to_dict(g.conn, query)
+        
                     
-    return {'pagamento': out_pagamentos}
+    return {'pagamento': employers_dict}
             
 #sistema que recebe um webhook do sistema de pagamento
 
