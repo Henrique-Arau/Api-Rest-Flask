@@ -195,7 +195,7 @@ def get_pagamentos_info(info, value):
 
 
 
-@app.route("/informations", methods=['POST'])
+@app.route("/register", methods=['POST'])
 def get_pagamentos_post():
     
     username = request.form['username']
@@ -205,22 +205,27 @@ def get_pagamentos_post():
         #401 http Unauthorized
         return Response("Unauthorized", status=401)
     
-    info = request.form['info']
-    value = request.form['value']
     
-    if value.isnumeric():
-        value = float(value)
+    nome = request.form['nome']
+    email = request.form['email']
+    status = request.form['status']
+    valor = request.form['valor']
+    forma_pagamento = request.form['forma_pagamento']
+    parcelas = request.form['parcelas']
+    
     
     query = """
-               SELECT nome, email, status, valor, forma_pagamento, parcelas
-               FROM pagamentos
-               WHERE "{}" LIKE "{}";
-    """.format(info, value)
+        INSERT INTO pagamentos (nome, email, status, valor, forma_pagamento, parcelas)
+        VALUES ("{}", "{}", "{}", "{}", "{}", "{}");
+    """.format(nome, email, status, valor, forma_pagamento, parcelas)
     
-    employers_dict = query_employers_to_dict(g.conn, query)
+    cursor = g.conn.cursor()
+    cursor.execute(query)
+    
+    g.conn.commit()
         
                     
-    return {'pagamento': employers_dict}
+    return {'pagamento': "Registered employee"}
             
 #sistema que recebe um webhook do sistema de pagamento
 
